@@ -15,9 +15,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(** Shared ring handling to communicate with other Xen domains. *)
+(** Low-level memory primitives needed by the (lock-free) ring protocols *)
 
-open S
+val zero: Cstruct.t -> unit
+(** [zero c] sets every byte of the [c] Cstruct to zero. *)
 
-module Rpc: RPC
-(* A request/response slotted ring *)
+val memory_barrier: unit -> unit
+(** Execute a memory barrier preventing other CPU cores from seeing writes
+    'crossing' the barrier. *)
+
+val unsafe_load_uint32: Cstruct.t -> int -> int
+(** [unsafe_load_uint32 buf ofs] returns an int containing the 32-bit value
+    stored at [ofs] (measured in bytes) read with a single atomic load
+    instruction. *)
+
+val unsafe_save_uint32: Cstruct.t -> int -> int -> unit
+(** [unsave_safe_uint32 buf ofs val] writes [val] at byte offset [ofs]
+    using a single atomic store instruction. *)

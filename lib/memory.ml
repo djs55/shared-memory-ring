@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2011 Anil Madhavapeddy <anil@recoil.org>
+ * Copyright (c) 2010-2011 Anil Madhavapeddy <anil@recoil.org>
  * Copyright (c) 2012 Citrix Systems, Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -15,9 +15,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(** Shared ring handling to communicate with other Xen domains. *)
+external memory_barrier: unit -> unit = "caml_memory_barrier" "noalloc"
 
-open S
+external unsafe_load_uint32: Cstruct.t -> int -> int = "caml_cstruct_unsafe_load_uint32"
 
-module Rpc: RPC
-(* A request/response slotted ring *)
+external unsafe_save_uint32: Cstruct.t -> int -> int -> unit = "caml_cstruct_unsafe_save_uint32"
+
+let zero t =
+  for i = 0 to Cstruct.len t - 1 do
+    Cstruct.set_char t i '\000'
+  done

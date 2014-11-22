@@ -15,9 +15,18 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(** Shared ring handling to communicate with other Xen domains. *)
+(** Xen-style bidirectional pipes as used by Xenstore and the console *)
 
 open S
 
-module Rpc: RPC
-(* A request/response slotted ring *)
+module Reverse: functor(L: PIPE_LAYOUT) -> PIPE_LAYOUT
+  with type t = L.t
+   and type data = L.data
+   and type position = L.position
+(** Flip the layout around swapping the frontend and the backend *)
+
+module Make: functor(L: XEN_PIPE_LAYOUT) -> PIPE
+  with type t = L.t
+   and type data = L.data
+   and type position = L.position
+(** Construct a pipe with a given memory layout *)
