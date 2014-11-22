@@ -13,24 +13,24 @@ Library shared_memory_ring
   Pack:               true
   Findlibname:        shared-memory-ring
   Modules:            Ring, Pipe, Memory, S
-  BuildDepends:       cstruct (>= 0.6.0), cstruct.syntax, sexplib, sexplib.syntax
+  BuildDepends:       cstruct (>= 0.6.0), cstruct.syntax, sexplib, sexplib.syntax, lwt
   CSources:           barrier_stubs.c, barrier.h
 
-#Library console_ring
-#  CompiledObject:     best
-#  Path:               xen
-#  Findlibname:        console
-#  Findlibparent:      shared_memory_ring
-#  Modules:            Console_ring
-#  BuildDepends:       shared-memory-ring
+Library console_ring
+  CompiledObject:     best
+  Path:               xen
+  Findlibname:        console
+  Findlibparent:      shared_memory_ring
+  Modules:            Console_ring
+  BuildDepends:       shared-memory-ring, lwt
 
-#Library xenstore_ring
-#  CompiledObject:     best
-#  Path:               xen
-#  Findlibname:        xenstore
-#  Findlibparent:      shared_memory_ring
-#  Modules:            Xenstore_ring
-#  BuildDepends:       shared-memory-ring
+Library xenstore_ring
+  CompiledObject:     best
+  Path:               xen
+  Findlibname:        xenstore
+  Findlibparent:      shared_memory_ring
+  Modules:            Xenstore_ring
+  BuildDepends:       shared-memory-ring, lwt
 
 #Library lwt_shared_memory_ring
 #  CompiledObject:     best

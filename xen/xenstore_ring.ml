@@ -47,4 +47,7 @@ module Layout = struct
   let set_ring_input_cons  c x = unsafe_save_uint32 c _input_cons (Int32.to_int x)
   let set_ring_input_prod  c x = unsafe_save_uint32 c _input_prod (Int32.to_int x)
 end
-include Pipe.Make(Layout)
+
+module Make(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+  include Pipe.Make(Layout)
+end

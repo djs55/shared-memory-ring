@@ -17,6 +17,6 @@
 open Shared_memory_ring
 open S
 
-include PIPE
+module Make(E: EVENTS with type 'a io = 'a Lwt.t): PIPE
   with type t = Cstruct.t
    and type data = Cstruct.t

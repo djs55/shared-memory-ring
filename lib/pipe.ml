@@ -17,7 +17,7 @@
 open S
 open Memory
 open Sexplib.Std
-open Printf
+open Lwt
 
 module Reverse(RW: PIPE_LAYOUT) = struct
   type t = RW.t
@@ -41,6 +41,8 @@ module Reverse(RW: PIPE_LAYOUT) = struct
 end
 
 module Make(RW: XEN_PIPE_LAYOUT) = struct
+  type 'a io = 'a Lwt.t
+
   type t = Cstruct.t
 
   type position = int32 with sexp
@@ -48,11 +50,14 @@ module Make(RW: XEN_PIPE_LAYOUT) = struct
   type data = Cstruct.t
 
   module Writer = struct
+    type 'a io = 'a Lwt.t
     type t = Cstruct.t
     type data = Cstruct.t
     type position = int32 with sexp
 
-    let next t =
+    let wait t n = return ()
+
+    let available t =
       let output = RW.get_ring_output t in
       let output_length = Cstruct.len output in
       (* Remember: the producer and consumer indices can be >> output_length *)
@@ -82,11 +87,14 @@ module Make(RW: XEN_PIPE_LAYOUT) = struct
   end
 
   module Reader = struct
+    type 'a io = 'a Lwt.t
     type t = Cstruct.t
     type data = Cstruct.t
     type position = int32 with sexp
 
-    let next t =
+    let wait t n = return ()
+
+    let available t =
       let input = RW.get_ring_input t in
       let input_length = Cstruct.len input in
       let cons = Int32.to_int (RW.get_ring_input_cons t) in
