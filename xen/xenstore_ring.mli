@@ -14,5 +14,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Shared_memory_ring
+open S
 
-module Ring : Ring.Bidirectional_byte_stream
+include PIPE
+  with type t = Cstruct.t
+   and type data = Cstruct.t
