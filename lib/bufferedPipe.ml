@@ -32,8 +32,10 @@ module Buffered(P: PIPE
 
   type t = Buffer.t
 
+  let port, channel = In_memory_events.listen 0
+
   let create ~buffer p =
-    let buffer = Buffer.create buffer in 
+    let buffer = Buffer.create channel buffer in 
     buffer
 
   module Reader = Buffer.Reader

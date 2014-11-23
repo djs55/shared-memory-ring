@@ -156,11 +156,8 @@ module type WINDOW = sig
   (** [available stream] returns the next available data item. Note there may
       be more units available without blocking, see [wait] below. *)
 
-  type channel
-  (** An event channel to wait on *)
-
-  val wait: t -> channel -> int -> unit io
-  (** [wait t channel n] blocks until [n] units of data are available *)
+  val wait: t -> int -> unit io
+  (** [wait t n] blocks until [n] units of data are available *)
 end
 
 (* XXX: PIPE implies unidirectional *)

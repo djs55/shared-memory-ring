@@ -18,11 +18,10 @@ open S
 
 module Make(E: EVENTS with type 'a io = 'a Lwt.t): sig
   include PIPE
-    with type t = Cstruct.t
-     and type data = Cstruct.t
+    with type data = Cstruct.t
      and type position = int32
 
-  val create: Cstruct.t -> t
+  val create: E.channel -> Cstruct.t -> t
   (** Construct a ring from the given buffer. Note the buffer must contain
       valid data. To initialise a buffer, see [init] *)
 

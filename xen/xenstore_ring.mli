@@ -17,7 +17,10 @@
 open Shared_memory_ring
 open S
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t): PIPE
-  with type t = Cstruct.t
-   and type data = Cstruct.t
+module Make(E: EVENTS with type 'a io = 'a Lwt.t): sig
+  include PIPE
+    with type data = Cstruct.t
+
+  val create: E.channel -> Cstruct.t -> t
+end
 (** Create an in-memory ring based on the Xen Xenstore protocol *)

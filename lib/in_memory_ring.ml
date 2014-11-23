@@ -50,11 +50,11 @@ end
 module Make(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
   include Pipe.Make(E)(Layout)
 
-  let create buffer =
+  let create channel buffer =
     (* We need space for the pointers and at least one byte in each direction *)
     if Cstruct.len buffer < (Layout._output_prod + 4 + 1 + 1)
     then invalid_arg "In_memory_ring.Make(...).create: buffer is impossibly small";
-    buffer
+    create channel buffer
 
   let init buffer = Memory.zero buffer
 end

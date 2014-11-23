@@ -43,18 +43,24 @@ end
 module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
   type 'a io = 'a Lwt.t
 
-  type t = Cstruct.t
+  type t' = {
+    buffer: Cstruct.t;
+    channel: E.channel;
+  }
+  type t = t'
 
   type position = int32 with sexp
 
   type data = Cstruct.t
 
-  let wait t channel f =
+  let create channel buffer = { channel; buffer }
+
+  let wait t f =
     let rec loop event =
       if f ()
       then return ()
       else begin
-        E.recv channel event
+        E.recv t.channel event
         >>= fun event ->
         loop event
       end in
@@ -62,29 +68,29 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
 
   module Writer = struct
     type 'a io = 'a Lwt.t
-    type t = Cstruct.t
+    type t = t'
     type data = Cstruct.t
     type position = int32 with sexp
     type channel = E.channel
 
-    let wait t channel n =
-      let output = RW.get_ring_output t in
+    let wait t n =
+      let output = RW.get_ring_output t.buffer in
       let output_length = Cstruct.len output in
-      wait t channel
+      wait t
         (fun () ->
-          let cons = Int32.to_int (RW.get_ring_output_cons t) in
-          let prod = Int32.to_int (RW.get_ring_output_prod t) in
+          let cons = Int32.to_int (RW.get_ring_output_cons t.buffer) in
+          let prod = Int32.to_int (RW.get_ring_output_prod t.buffer) in
           let unread = prod - cons in
           let free_space = output_length - unread in
           free_space >= n
         )
 
     let available t =
-      let output = RW.get_ring_output t in
+      let output = RW.get_ring_output t.buffer in
       let output_length = Cstruct.len output in
       (* Remember: the producer and consumer indices can be >> output_length *)
-      let cons = Int32.to_int (RW.get_ring_output_cons t) in
-      let prod = Int32.to_int (RW.get_ring_output_prod t) in
+      let cons = Int32.to_int (RW.get_ring_output_cons t.buffer) in
+      let prod = Int32.to_int (RW.get_ring_output_prod t.buffer) in
       memory_barrier ();
       (* 0 <= cons', prod' <= output_length *)
       let cons' =
@@ -104,31 +110,31 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
 
     let advance t prod' =
       memory_barrier ();
-      let prod = RW.get_ring_output_prod t in
-      RW.set_ring_output_prod t (max prod' prod)
+      let prod = RW.get_ring_output_prod t.buffer in
+      RW.set_ring_output_prod t.buffer (max prod' prod)
   end
 
   module Reader = struct
     type 'a io = 'a Lwt.t
-    type t = Cstruct.t
+    type t = t'
     type data = Cstruct.t
     type position = int32 with sexp
     type channel = E.channel
 
-    let wait t channel n =
-      wait t channel
+    let wait t n =
+      wait t
         (fun () ->
-          let cons = Int32.to_int (RW.get_ring_input_cons t) in
-          let prod = Int32.to_int (RW.get_ring_input_prod t) in
+          let cons = Int32.to_int (RW.get_ring_input_cons t.buffer) in
+          let prod = Int32.to_int (RW.get_ring_input_prod t.buffer) in
           let unread = prod - cons in
           unread >= n
         )
 
     let available t =
-      let input = RW.get_ring_input t in
+      let input = RW.get_ring_input t.buffer in
       let input_length = Cstruct.len input in
-      let cons = Int32.to_int (RW.get_ring_input_cons t) in
-      let prod = Int32.to_int (RW.get_ring_input_prod t) in
+      let cons = Int32.to_int (RW.get_ring_input_cons t.buffer) in
+      let prod = Int32.to_int (RW.get_ring_input_prod t.buffer) in
       memory_barrier ();
       let cons' =
         let x = cons mod input_length in
@@ -146,7 +152,7 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
       Int32.of_int cons, Cstruct.sub input cons' data_available
 
     let advance t (cons':int32) =
-      let cons = RW.get_ring_input_cons t in
-      RW.set_ring_input_cons t (max cons' cons)
+      let cons = RW.get_ring_input_cons t.buffer in
+      RW.set_ring_input_cons t.buffer (max cons' cons)
   end
 end
