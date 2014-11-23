@@ -41,7 +41,8 @@ module Proxy(A: PIPE
     loop ()
 end
 
-module Buffer = In_memory_ring.Make(In_memory_events)
+module BufferFrontend = In_memory_ring.Frontend(In_memory_events)
+module BufferBackend  = In_memory_ring.Backend(In_memory_events)
 
 module Buffered(P: PIPE
   with type 'a io = 'a Lwt.t
@@ -52,20 +53,24 @@ module Buffered(P: PIPE
   type data = Cstruct.t
   type 'a io = 'a Lwt.t
 
-  type t = Buffer.t
+  type t = BufferFrontend.t
 
   let port, channel = In_memory_events.listen 0
 
   let create ~buffer p =
-    let buffer = Buffer.create channel buffer in
-    let module LR = Proxy(Buffer)(P) in
-    let _ = LR.forever buffer p in
-    let module RL = Proxy(P)(Buffer) in
-    let _ = RL.forever p buffer in
-    buffer
+    (* Create a backend and service it by proxying too and from
+       the real pipe *)
+    let backend = BufferBackend.create channel buffer in
+    let module LR = Proxy(BufferBackend)(P) in
+    let _ = LR.forever backend p in
+    let module RL = Proxy(P)(BufferBackend) in
+    let _ = RL.forever p backend in
 
-  module Reader = Buffer.Reader
+    let channel = In_memory_events.connect 0 port in
+    BufferFrontend.create channel buffer
 
-  module Writer = Buffer.Writer
+  module Reader = BufferFrontend.Reader
+
+  module Writer = BufferFrontend.Writer
 
 end

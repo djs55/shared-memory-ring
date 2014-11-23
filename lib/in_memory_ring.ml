@@ -47,13 +47,26 @@ module Layout = struct
   let set_ring_input_prod  c x = unsafe_save_uint32 c _input_prod (Int32.to_int x)
 end
 
-module Make(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+let check_length buffer =
+  (* We need space for the pointers and at least one byte in each direction *)
+  if Cstruct.len buffer < (Layout._output_prod + 4 + 1 + 1)
+  then invalid_arg "In_memory_ring.Make(...).create: buffer is impossibly small"
+
+module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
   include Pipe.Make(E)(Layout)
 
   let create channel buffer =
-    (* We need space for the pointers and at least one byte in each direction *)
-    if Cstruct.len buffer < (Layout._output_prod + 4 + 1 + 1)
-    then invalid_arg "In_memory_ring.Make(...).create: buffer is impossibly small";
+    check_length buffer;
+    create channel buffer
+
+  let init buffer = Memory.zero buffer
+end
+
+module Backend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+  include Pipe.Make(E)(Pipe.Reverse(Layout))
+
+  let create channel buffer =
+    check_length buffer;
     create channel buffer
 
   let init buffer = Memory.zero buffer

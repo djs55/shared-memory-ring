@@ -16,7 +16,22 @@
  *)
 open S
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t): sig
+module Frontend(E: EVENTS with type 'a io = 'a Lwt.t): sig
+  include PIPE
+    with type data = Cstruct.t
+     and type position = int32
+
+  val create: E.channel -> Cstruct.t -> t
+  (** Construct a ring from the given buffer. Note the buffer must contain
+      valid data. To initialise a buffer, see [init] *)
+
+  val init: Cstruct.t -> unit
+  (** Initialise the buffer so it does not contain any readable data *)
+end
+
+(** Create a shared ring from the given memory buffer. Note the layout is
+    decided by the implementation: it is not a standard protocol. *)
+module Backend(E: EVENTS with type 'a io = 'a Lwt.t): sig
   include PIPE
     with type data = Cstruct.t
      and type position = int32
