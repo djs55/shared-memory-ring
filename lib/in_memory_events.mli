@@ -1,6 +1,5 @@
 (*
- * Copyright (c) 2011 Anil Madhavapeddy <anil@recoil.org>
- * Copyright (c) 2012 Citrix Systems, Inc
+ * Copyright (C) Citrix Systems Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,10 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Shared_memory_ring
 open S
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t): PIPE
-  with type t = Cstruct.t
-   and type data = Cstruct.t
-(** Create an in-memory ring based on the Xen console protocol *)
+include EVENTS
+   with type 'a io = 'a Lwt.t

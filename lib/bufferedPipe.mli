@@ -14,10 +14,21 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Shared_memory_ring
+
+(** Xen-style bidirectional pipes as used by Xenstore and the console *)
+
 open S
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t): PIPE
-  with type t = Cstruct.t
+module Buffered(P: PIPE
+  with type 'a io = 'a Lwt.t
    and type data = Cstruct.t
-(** Create an in-memory ring based on the Xen console protocol *)
+   and type position = int32
+): sig
+  include PIPE
+     with type 'a io = 'a Lwt.t
+      and type data = Cstruct.t
+      and type position = int32
+
+  val create: buffer:Cstruct.t -> P.t -> t
+end
+(** Add a layer of buffering on top of a pipe *)

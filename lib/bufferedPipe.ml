@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2011 Anil Madhavapeddy <anil@recoil.org>
+ * Copyright (c) 2010-2011 Anil Madhavapeddy <anil@recoil.org>
  * Copyright (c) 2012 Citrix Systems, Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -14,10 +14,30 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Shared_memory_ring
 open S
+open Memory
+open Sexplib.Std
+open Lwt
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t): PIPE
-  with type t = Cstruct.t
+module Buffer = In_memory_ring.Make(In_memory_events)
+
+module Buffered(P: PIPE
+  with type 'a io = 'a Lwt.t
    and type data = Cstruct.t
-(** Create an in-memory ring based on the Xen console protocol *)
+   and type position = int32
+) = struct
+  type position = int32 with sexp
+  type data = Cstruct.t
+  type 'a io = 'a Lwt.t
+
+  type t = Buffer.t
+
+  let create ~buffer p =
+    let buffer = Buffer.create buffer in 
+    buffer
+
+  module Reader = Buffer.Reader
+
+  module Writer = Buffer.Writer
+
+end

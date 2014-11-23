@@ -20,3 +20,4 @@ open S
 module Make(E: EVENTS with type 'a io = 'a Lwt.t): PIPE
   with type t = Cstruct.t
    and type data = Cstruct.t
+(** Create an in-memory ring based on the Xen Xenstore protocol *)

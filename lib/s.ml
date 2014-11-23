@@ -153,7 +153,8 @@ module type WINDOW = sig
       [position] and therefore any buffers may be recycled. *)
 
   val available: t -> (position * data)
-  (** [available stream] returns the currently available data *)
+  (** [available stream] returns the next available data item. Note there may
+      be more units available without blocking, see [wait] below. *)
 
   type channel
   (** An event channel to wait on *)
@@ -162,6 +163,7 @@ module type WINDOW = sig
   (** [wait t channel n] blocks until [n] units of data are available *)
 end
 
+(* XXX: PIPE implies unidirectional *)
 module type PIPE = sig
   (** Represents a bidirectional pipe *)
 
