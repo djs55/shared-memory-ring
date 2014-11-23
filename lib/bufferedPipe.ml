@@ -19,6 +19,28 @@ open Memory
 open Sexplib.Std
 open Lwt
 
+module Proxy(A: PIPE
+  with type data = Cstruct.t
+   and type position = int32
+)(B: PIPE
+  with type data = Cstruct.t
+   and type position = int32) = struct
+  let rec forever a b =
+    let rec loop () =
+      A.Reader.wait a 1
+      >>= fun () ->
+      let pos, data = A.Reader.available a in
+      B.Writer.wait b 1
+      >>= fun () ->
+      let pos', data' = B.Writer.available b in
+      (* XXX: need to intersect the two intervals *)
+      Cstruct.blit data 0 data' 0 1;
+      B.Writer.advance b (Int32.succ pos');
+      A.Reader.advance a (Int32.succ pos);
+      loop () in
+    loop ()
+end
+
 module Buffer = In_memory_ring.Make(In_memory_events)
 
 module Buffered(P: PIPE
@@ -35,7 +57,11 @@ module Buffered(P: PIPE
   let port, channel = In_memory_events.listen 0
 
   let create ~buffer p =
-    let buffer = Buffer.create channel buffer in 
+    let buffer = Buffer.create channel buffer in
+    let module LR = Proxy(Buffer)(P) in
+    let _ = LR.forever buffer p in
+    let module RL = Proxy(P)(Buffer) in
+    let _ = RL.forever p buffer in
     buffer
 
   module Reader = Buffer.Reader
