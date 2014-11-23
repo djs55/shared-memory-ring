@@ -48,6 +48,10 @@ module Layout = struct
   let set_ring_input_prod  c x = unsafe_save_uint32 c _input_prod (Int32.to_int x)
 end
 
-module Make(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
   include Pipe.Make(E)(Layout)
+end
+
+module Backend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+  include Pipe.Make(E)(Pipe.Reverse(Layout))
 end

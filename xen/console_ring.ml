@@ -50,6 +50,10 @@ module Layout = struct
 
 end
 
-module Make(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
   include Pipe.Make(E)(Layout)
+end
+
+module Backend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+  include Pipe.Make(E)(Pipe.Reverse(Layout))
 end
