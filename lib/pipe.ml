@@ -111,7 +111,8 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
     let advance t prod' =
       memory_barrier ();
       let prod = RW.get_ring_output_prod t.buffer in
-      RW.set_ring_output_prod t.buffer (max prod' prod)
+      RW.set_ring_output_prod t.buffer (max prod' prod);
+      E.send t.channel
   end
 
   module Reader = struct
@@ -153,6 +154,7 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
 
     let advance t (cons':int32) =
       let cons = RW.get_ring_input_cons t.buffer in
-      RW.set_ring_input_cons t.buffer (max cons' cons)
+      RW.set_ring_input_cons t.buffer (max cons' cons);
+      E.send t.channel
   end
 end
