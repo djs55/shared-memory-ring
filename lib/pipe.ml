@@ -40,7 +40,7 @@ module Reverse(RW: PIPE_LAYOUT) = struct
   let set_ring_output_prod = RW.set_ring_input_prod
 end
 
-module Make(RW: XEN_PIPE_LAYOUT) = struct
+module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
   type 'a io = 'a Lwt.t
 
   type t = Cstruct.t
@@ -49,13 +49,35 @@ module Make(RW: XEN_PIPE_LAYOUT) = struct
 
   type data = Cstruct.t
 
+  let wait t channel f =
+    let rec loop event =
+      if f ()
+      then return ()
+      else begin
+        E.recv channel event
+        >>= fun event ->
+        loop event
+      end in
+    loop E.initial
+
   module Writer = struct
     type 'a io = 'a Lwt.t
     type t = Cstruct.t
     type data = Cstruct.t
     type position = int32 with sexp
+    type channel = E.channel
 
-    let wait t n = return ()
+    let wait t channel n =
+      let output = RW.get_ring_output t in
+      let output_length = Cstruct.len output in
+      wait t channel
+        (fun () ->
+          let cons = Int32.to_int (RW.get_ring_output_cons t) in
+          let prod = Int32.to_int (RW.get_ring_output_prod t) in
+          let unread = prod - cons in
+          let free_space = output_length - unread in
+          free_space >= n
+        )
 
     let available t =
       let output = RW.get_ring_output t in
@@ -91,8 +113,16 @@ module Make(RW: XEN_PIPE_LAYOUT) = struct
     type t = Cstruct.t
     type data = Cstruct.t
     type position = int32 with sexp
+    type channel = E.channel
 
-    let wait t n = return ()
+    let wait t channel n =
+      wait t channel
+        (fun () ->
+          let cons = Int32.to_int (RW.get_ring_input_cons t) in
+          let prod = Int32.to_int (RW.get_ring_input_prod t) in
+          let unread = prod - cons in
+          unread >= n
+        )
 
     let available t =
       let input = RW.get_ring_input t in

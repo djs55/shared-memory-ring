@@ -155,8 +155,11 @@ module type WINDOW = sig
   val available: t -> (position * data)
   (** [available stream] returns the currently available data *)
 
-  val wait: t -> int -> unit io
-  (** [wait t n] blocks until [n] units of data are available *)
+  type channel
+  (** An event channel to wait on *)
+
+  val wait: t -> channel -> int -> unit io
+  (** [wait t channel n] blocks until [n] units of data are available *)
 end
 
 module type PIPE = sig

@@ -49,5 +49,5 @@ module Layout = struct
 end
 
 module Make(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
-  include Pipe.Make(Layout)
+  include Pipe.Make(E)(Layout)
 end

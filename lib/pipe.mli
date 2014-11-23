@@ -25,7 +25,7 @@ module Reverse: functor(L: PIPE_LAYOUT) -> PIPE_LAYOUT
    and type position = L.position
 (** Flip the layout around swapping the frontend and the backend *)
 
-module Make: functor(L: XEN_PIPE_LAYOUT) -> PIPE
+module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_PIPE_LAYOUT): PIPE
   with type 'a io = 'a Lwt.t
    and type t = L.t
    and type data = L.data
