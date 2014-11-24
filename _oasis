@@ -40,6 +40,15 @@ Library xenstore_ring
 #  Modules:            Lwt_ring
 #  BuildDepends:       shared-memory-ring, lwt, lwt.syntax, mirage-profile
 
+Executable pipe_test
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             pipe_test.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, shared-memory-ring, shared-memory-ring.xenstore, shared-memory-ring.console, oUnit
+
 #Executable ring_test
 #  CompiledObject:     best
 #  Path:               lib_test

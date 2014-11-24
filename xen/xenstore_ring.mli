@@ -20,6 +20,7 @@ open S
 module Frontend(E: EVENTS with type 'a io = 'a Lwt.t): sig
   include PIPE
     with type data = Cstruct.t
+     and type position = int32
 
   val create: E.channel -> Cstruct.t -> t
 end
@@ -29,6 +30,7 @@ end
 module Backend(E: EVENTS with type 'a io = 'a Lwt.t): sig
   include PIPE
     with type data = Cstruct.t
+     and type position = int32
 
   val create: E.channel -> Cstruct.t -> t
 end
