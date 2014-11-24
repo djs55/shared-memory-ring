@@ -55,34 +55,20 @@ let write_read () =
 	let f = Frontend.create channel page in
 	let channel' = In_memory_events.connect 0 port in
 	let b = Backend.create channel' page in
-        let rec write ofs buffer =
-		if Cstruct.len buffer = 0
-		then return ()
-        	else begin
-			Frontend.Writer.wait f 1
-			>>= fun () ->
-			let ofs', buffer' = Frontend.Writer.available f in
-			if ofs' < ofs
-			then fail (Failure (Printf.sprintf "stream has lost data (ofs' = %ld < ofs = %ld)" ofs' ofs))
-			else begin
-				let skip = Int32.(to_int (sub ofs' ofs)) in
-				let buffer = Cstruct.shift buffer skip in
-				let len = min (Cstruct.len buffer') (Cstruct.len buffer) in
-				Cstruct.blit buffer 0 buffer' 0 len;
-				let ofs' = Int32.(add ofs' (of_int len)) in
-				Frontend.Writer.advance f ofs';
-				write ofs' (Cstruct.shift buffer len)
-			end
-		end in
         let message = "hello" in
 	let t =
-		write 0l (cstruct_of_string message)
-		>>= fun () ->
-		return (Backend.Reader.available b) in
-	let ofs, buffer = Lwt_main.run t in
+		Frontend.write f 0l [ cstruct_of_string message ]
+		>>= function
+                | `Ok ofs ->
+                  Frontend.Writer.advance f ofs;
+		  return (Backend.Reader.available b)
+                | `Error x ->
+                  fail (Failure x) in
+	let ofs, buffers = Lwt_main.run t in
+        let buffer = String.concat "" (List.map Cstruct.to_string buffers) in
 	assert_equal ~printer:Int32.to_string 0l ofs;
-	assert_equal ~printer:string_of_int (String.length message) (Cstruct.len buffer);
-	assert_equal ~printer:(fun x -> String.escaped x) message (Cstruct.to_string buffer)
+	assert_equal ~printer:string_of_int (String.length message) (String.length buffer);
+	assert_equal ~printer:(fun x -> String.escaped x) message buffer
 
 let _ =
   let suite = "ring" >:::

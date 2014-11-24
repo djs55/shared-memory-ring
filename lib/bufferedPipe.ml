@@ -20,11 +20,13 @@ open Sexplib.Std
 open Lwt
 
 module Proxy(A: PIPE
-  with type data = Cstruct.t
+  with type data = Cstruct.t list
    and type position = int32
+   and type 'a io = 'a Lwt.t
 )(B: PIPE
-  with type data = Cstruct.t
-   and type position = int32) = struct
+  with type data = Cstruct.t list
+   and type position = int32
+   and type 'a io = 'a Lwt.t) = struct
   let rec forever a b =
     let rec loop () =
       A.Reader.wait a 1
@@ -33,11 +35,23 @@ module Proxy(A: PIPE
       B.Writer.wait b 1
       >>= fun () ->
       let pos', data' = B.Writer.available b in
-      (* XXX: need to intersect the two intervals *)
-      Cstruct.blit data 0 data' 0 1;
-      B.Writer.advance b (Int32.succ pos');
-      A.Reader.advance a (Int32.succ pos);
-      loop () in
+      let len = List.fold_left (+) 0 (List.map Cstruct.len data) in
+      let len' = List.fold_left (+) 0 (List.map Cstruct.len data') in
+      (* avoid overloading the output by writing more than this *)
+      let rec take remaining = function
+      | [] -> []
+      | b :: bs ->
+        let len_b = Cstruct.len b in
+        if len_b < remaining
+        then b :: (take (remaining - len_b) bs)
+        else [ Cstruct.sub b 0 remaining ] in
+      B.write b pos' (take (min len len') data)
+      >>= function
+      | `Ok pos'' ->
+        B.Writer.advance b pos'';
+        A.Reader.advance a pos'';
+        loop ()
+      | `Error m -> fail (Failure m) in
     loop ()
 end
 
@@ -46,11 +60,11 @@ module BufferBackend  = In_memory_ring.Backend(In_memory_events)
 
 module Buffered(P: PIPE
   with type 'a io = 'a Lwt.t
-   and type data = Cstruct.t
+   and type data = Cstruct.t list
    and type position = int32
 ) = struct
   type position = int32 with sexp
-  type data = Cstruct.t
+  type data = Cstruct.t list
   type 'a io = 'a Lwt.t
 
   type t = BufferFrontend.t
@@ -65,9 +79,10 @@ module Buffered(P: PIPE
     let _ = LR.forever backend p in
     let module RL = Proxy(P)(BufferBackend) in
     let _ = RL.forever p backend in
-
     let channel = In_memory_events.connect 0 port in
     BufferFrontend.create channel buffer
+
+  let write = BufferFrontend.write
 
   module Reader = BufferFrontend.Reader
 

@@ -51,7 +51,7 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
 
   type position = int32 with sexp
 
-  type data = Cstruct.t
+  type data = Cstruct.t list
 
   let create channel buffer = { channel; buffer }
 
@@ -69,7 +69,7 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
   module Writer = struct
     type 'a io = 'a Lwt.t
     type t = t'
-    type data = Cstruct.t
+    type data = Cstruct.t list
     type position = int32 with sexp
     type channel = E.channel
 
@@ -99,26 +99,67 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
       and prod' =
         let x = prod mod output_length in
         if x < 0 then x + output_length else x in
-      let free_space =
+      let data =
         if prod - cons >= output_length
-        then 0
+        then [ Cstruct.sub output 0 0 ]
         else
         if prod' >= cons'
-        then output_length - prod' (* in this write, fill to the end *)
-        else cons' - prod' in
-      Int32.of_int prod, Cstruct.sub output prod' free_space
+        then [ Cstruct.sub output prod' (output_length - prod'); Cstruct.sub output 0 cons' ]
+        else [ Cstruct.sub output prod' (cons' - prod') ] in
+      Int32.of_int prod, data
 
     let advance t prod' =
       memory_barrier ();
       let prod = RW.get_ring_output_prod t.buffer in
       RW.set_ring_output_prod t.buffer (max prod' prod);
       E.send t.channel
+
   end
+
+  let write_one t ofs buffer =
+    let buffer_len = Cstruct.len buffer in
+    let output_len = Cstruct.len (RW.get_ring_output t.buffer) in
+    if buffer_len = 0
+    then return (`Ok ofs)
+    else if output_len < buffer_len
+    then return (`Error (Printf.sprintf "write argument is longer (%d) than the total ring output buffer (%d)" buffer_len output_len))
+    else begin
+      Writer.wait t buffer_len
+      >>= fun () ->
+      let ofs', buffer's = Writer.available t in
+      if ofs' < ofs
+      then return (`Error (Printf.sprintf "stream has lost data (ofs' = %ld < ofs = %ld)" ofs' ofs))
+      else begin
+        let skip = Int32.(to_int (sub ofs' ofs)) in
+        let buffer = Cstruct.shift buffer skip in
+        let rec loop ofs' buffer buffer's = match buffer's with
+        | [] ->
+          assert (Cstruct.len buffer = 0); (* Or else wait returned too soon *)
+          return (`Ok ofs')
+        | buffer' :: buffer's ->
+          let len = min (Cstruct.len buffer') (Cstruct.len buffer) in
+          Cstruct.blit buffer 0 buffer' 0 len;
+          let buffer = Cstruct.shift buffer len in
+          let ofs' = Int32.(add ofs' (of_int len)) in
+          loop ofs' buffer buffer's in
+       loop ofs' buffer buffer's
+     end
+   end
+
+  let write t ofs buffers =
+    let rec loop ofs = function
+    | [] -> return (`Ok ofs)
+    | b::bs ->
+      write_one t ofs b
+      >>= function
+      | `Ok ofs -> loop ofs bs
+      | `Error m -> return (`Error m) in
+    loop ofs buffers
 
   module Reader = struct
     type 'a io = 'a Lwt.t
     type t = t'
-    type data = Cstruct.t
+    type data = Cstruct.t list
     type position = int32 with sexp
     type channel = E.channel
 
@@ -143,14 +184,14 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
       and prod' =
         let x = prod mod input_length in
         if x < 0 then x + input_length else x in
-      let data_available =
+      let data =
         if prod = cons
-        then 0
+        then [ Cstruct.sub input 0 0 ]
         else
-        if prod' > cons'
-        then prod' - cons'
-        else input_length - cons' in (* read up to the last byte in the ring *)
-      Int32.of_int cons, Cstruct.sub input cons' data_available
+          if prod' > cons'
+          then [ Cstruct.sub input cons' (prod' - cons') ]
+          else [ Cstruct.sub input cons' (input_length - cons'); Cstruct.sub input 0 cons' ] in
+      Int32.of_int cons, data
 
     let advance t (cons':int32) =
       let cons = RW.get_ring_input_cons t.buffer in

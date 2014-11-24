@@ -182,6 +182,11 @@ module type PIPE = sig
      and type data = data
      and type position = position
 
+  val write: t -> position -> data -> [ `Ok of position | `Error of string ] io
+  (** [write t pos buffer] writes [data] at position [pos] in the stream,
+      returning the new stream position. This function will not advance the stream
+      position itself: callers must call Writer.advance when they are ready. *)
+
   module Writer: WINDOW
     with type 'a io = 'a Lwt.t
      and type t = t

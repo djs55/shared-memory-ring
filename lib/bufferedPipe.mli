@@ -21,12 +21,12 @@ open S
 
 module Buffered(P: PIPE
   with type 'a io = 'a Lwt.t
-   and type data = Cstruct.t
+   and type data = Cstruct.t list
    and type position = int32
 ): sig
   include PIPE
      with type 'a io = 'a Lwt.t
-      and type data = Cstruct.t
+      and type data = Cstruct.t list
       and type position = int32
 
   val create: buffer:Cstruct.t -> P.t -> t

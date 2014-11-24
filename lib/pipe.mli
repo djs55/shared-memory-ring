@@ -28,7 +28,7 @@ module Reverse: functor(L: PIPE_LAYOUT) -> PIPE_LAYOUT
 module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_PIPE_LAYOUT): sig
   include PIPE
     with type 'a io = 'a Lwt.t
-     and type data = L.data
+     and type data = L.data list
      and type position = L.position
 
   val create: E.channel -> L.t -> t
