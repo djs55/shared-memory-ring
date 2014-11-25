@@ -57,27 +57,33 @@ let write_read () =
 	let f = Frontend.create channel page in
 	let channel' = In_memory_events.connect 0 port in
 	let b = Backend.create channel' page in
-
+	let message = "hello" in
         (* No data is available for reading *)
-        let ofs, buffers = Backend.Reader.available b in
-        let data = to_string buffers in
-        assert_equal ~printer:Int32.to_string 0l ofs;
-        assert_equal ~printer:(fun x -> String.escaped x) "" data;
+        let rec loop ofs =
+                if ofs < Int32.(mul 1024l (of_int (String.length message))) then begin
+                        let ofs', buffers = Backend.Reader.available b in
+                        let data = to_string buffers in
+                        assert_equal ~printer:Int32.to_string ofs ofs';
+                        assert_equal ~printer:(fun x -> String.escaped x) "" data;
 
-        let message = "hello" in
-	let t =
-		Frontend.write f 0l [ cstruct_of_string message ]
-		>>= function
-                | `Ok ofs ->
-                  Frontend.Writer.advance f ofs;
-		  return (Backend.Reader.available b)
-                | `Error x ->
-                  fail (Failure x) in
-	let ofs, buffers = Lwt_main.run t in
-        let buffer = to_string buffers in
-	assert_equal ~printer:Int32.to_string 0l ofs;
-	assert_equal ~printer:string_of_int (String.length message) (String.length buffer);
-	assert_equal ~printer:(fun x -> String.escaped x) message buffer
+                        let t =
+                        Frontend.write f ofs [ cstruct_of_string message ]
+                        >>= function
+                        | `Ok ofs ->
+                                Frontend.Writer.advance f ofs;
+                                return (Backend.Reader.available b)
+                        | `Error x ->
+                                fail (Failure x) in
+                        let ofs', buffers = Lwt_main.run t in
+                        let buffer = to_string buffers in
+                        assert_equal ~printer:Int32.to_string ofs ofs';
+                        assert_equal ~printer:string_of_int (String.length message) (String.length buffer);
+                        assert_equal ~printer:(fun x -> String.escaped x) message buffer;
+                        let ofs' = Int32.(add ofs' (of_int (String.length buffer))) in
+                        Backend.Reader.advance b ofs';
+                        loop ofs'
+                end in
+        loop 0l
 
 let _ =
   let suite = "ring" >:::
