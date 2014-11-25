@@ -190,7 +190,7 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
         else
           if prod' > cons'
           then [ Cstruct.sub input cons' (prod' - cons') ]
-          else [ Cstruct.sub input cons' (input_length - cons'); Cstruct.sub input 0 cons' ] in
+          else [ Cstruct.sub input cons' (input_length - cons'); Cstruct.sub input 0 prod' ] in
       Int32.of_int cons, data
 
     let advance t (cons':int32) =
