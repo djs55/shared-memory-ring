@@ -77,6 +77,11 @@ Executable pipe_test
 #  Install:            false
 #  BuildDepends:       lwt, lwt.unix, shared-memory-ring, shared-memory-ring.lwt
 
+Test pipe_test
+  Run$:               flag(tests)
+  Command:            $pipe_test
+  WorkingDirectory:   lib_test
+
 #Test ring_test
 #  Run$:               flag(tests)
 #  Command:            $ring_test
