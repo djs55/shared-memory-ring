@@ -82,6 +82,7 @@ module Buffered(P: PIPE
     let channel = In_memory_events.connect 0 port in
     BufferFrontend.create channel buffer
 
+  let init = BufferFrontend.init
   let write = BufferFrontend.write
 
   module Reader = BufferFrontend.Reader

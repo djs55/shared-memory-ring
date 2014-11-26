@@ -55,6 +55,12 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
 
   let create channel buffer = { channel; buffer }
 
+  let init t =
+    RW.set_ring_input_cons t.buffer 0l;
+    RW.set_ring_input_prod t.buffer 0l;
+    RW.set_ring_output_cons t.buffer 0l;
+    RW.set_ring_output_prod t.buffer 0l
+
   let wait t f =
     let rec loop event =
       if f ()

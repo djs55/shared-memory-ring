@@ -58,8 +58,6 @@ module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
   let create channel buffer =
     check_length buffer;
     create channel buffer
-
-  let init buffer = Memory.zero buffer
 end
 
 module Backend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
@@ -68,6 +66,4 @@ module Backend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
   let create channel buffer =
     check_length buffer;
     create channel buffer
-
-  let init buffer = Memory.zero buffer
 end

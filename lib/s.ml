@@ -176,6 +176,9 @@ module type PIPE = sig
   type position with sexp
   (** The type of a position associated with each direction in the pipe *)
 
+  val init: t -> unit
+  (** Reset the ring to the initial state *)
+
   module Reader: WINDOW
     with type 'a io = 'a Lwt.t
      and type t = t
