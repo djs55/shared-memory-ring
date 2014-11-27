@@ -76,6 +76,7 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = st
     | None -> Unbuffered p
     | Some buffer ->
       let port, channel = In_memory_events.listen 0 in
+      let channel = In_memory_events.connect 0 port in
       (* Create a backend and service it by proxying too and from
          the real pipe *)
       let backend = BufferBackend.create channel buffer in
@@ -83,7 +84,6 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = st
       let _ = LR.forever backend p in
       let module RL = Proxy(Raw)(BufferBackend) in
       let _ = RL.forever p backend in
-      let channel = In_memory_events.connect 0 port in
       Buffered (BufferFrontend.create channel buffer)
 
   let init = function
