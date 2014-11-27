@@ -49,15 +49,15 @@ Executable pipe_test
   Install:            false
   BuildDepends:       lwt, lwt.unix, shared-memory-ring, shared-memory-ring.xenstore, shared-memory-ring.console, oUnit
 
-#Executable ring_test
-#  CompiledObject:     best
-#  Path:               lib_test
-#  MainIs:             ring_test.ml
-#  Build$:             flag(tests)
-#  Custom:             true
-#  Install:            false
-#  BuildDepends:       lwt, lwt.unix, shared-memory-ring, shared-memory-ring.xenstore, shared-memory-ring.console, oUnit
-#  CSources:           old_ring_stubs.c, console.h, xenstore.h, barrier.h
+Executable ring_test
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             ring_test.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, shared-memory-ring, shared-memory-ring.xenstore, shared-memory-ring.console, oUnit
+  CSources:           old_ring_stubs.c, console.h, xenstore.h, barrier.h
 
 #Executable lwt_test
 #  CompiledObject:     best
@@ -82,10 +82,10 @@ Test pipe_test
   Command:            $pipe_test
   WorkingDirectory:   lib_test
 
-#Test ring_test
-#  Run$:               flag(tests)
-#  Command:            $ring_test
-#  WorkingDirectory:   lib_test
+Test ring_test
+  Run$:               flag(tests)
+  Command:            $ring_test
+  WorkingDirectory:   lib_test
 
 #Test lwt_test
 #  Run$:               flag(tests)

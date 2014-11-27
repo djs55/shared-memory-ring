@@ -47,20 +47,22 @@ let cstruct_of_string s =
 
 let to_string x = String.concat "" (List.map Cstruct.to_string x)
 
-module Frontend = Xenstore_ring.Frontend(In_memory_events)
-module Backend = Xenstore_ring.Backend(In_memory_events)
+module Xenstore_frontend = Xenstore_ring.Frontend(In_memory_events)
+module Xenstore_backend = Xenstore_ring.Backend(In_memory_events)
 
 let with_xenstores fn =
 	let b1 = alloc_page () in
 	let b2 = alloc_page () in
+	Memory.zero (Cstruct.of_bigarray b1);
+	Memory.zero (Cstruct.of_bigarray b2);
 	let a = Cstruct.of_bigarray b1 in
 	let b = Old_ring.C_Xenstore.of_buf b2 in
         let port, channel = In_memory_events.listen 0 in
 				let channel' = In_memory_events.connect 0 port in
-        let f = Frontend.create channel a in
+        let f = Xenstore_frontend.create channel a in
 Old_ring.C_Xenstore.zero b;
-				let backend = Backend.create channel' (Cstruct.of_bigarray b2) in
-        Frontend.init f;
+				let backend = Xenstore_backend.create channel' (Cstruct.of_bigarray b2) in
+        Xenstore_frontend.init f;
 	fn b1 b2 f b backend
 
 let xenstore_init () =
@@ -75,17 +77,17 @@ let xenstore_hello () =
 	with_xenstores
 		(fun b1 b2 a b backend ->
 			let t =
-		  	Frontend.write a 0l [ cstruct_of_string msg ]
+		  	Xenstore_frontend.write a 0l [ cstruct_of_string msg ]
 			  >>= function
 				| `Ok ofs ->
-					Frontend.Writer.advance a ofs;
+					Xenstore_frontend.Writer.advance a ofs;
 					return ()
 				| `Error msg -> fail (Failure msg) in
 			Lwt_main.run t;
 			let _ = Old_ring.C_Xenstore.unsafe_write b msg (String.length msg) in
 			compare_bufs b1 b2;
-			let ofs, buffers = Backend.Reader.available backend in
-			Backend.Reader.advance backend ofs;
+			let ofs, buffers = Xenstore_backend.Reader.available backend in
+			Xenstore_backend.Reader.advance backend ofs;
 			let x = to_string buffers in
 			assert_equal ~printer:String.escaped msg x;
 			let x = Old_ring.C_Xenstore.Back.unsafe_read b buf (String.length buf) in
@@ -113,10 +115,10 @@ let check_signed_unsigned_write () =
 			set_ring_output_cons (Cstruct.of_bigarray b2) ofs;
 			set_ring_output_prod (Cstruct.of_bigarray b2) ofs;
 			let t =
-				Frontend.write a 0l [ cstruct_of_string msg ]
+				Xenstore_frontend.write a 0l [ cstruct_of_string msg ]
 				>>= function
 				| `Ok ofs ->
-					Frontend.Writer.advance a ofs;
+					Xenstore_frontend.Writer.advance a ofs;
 					return ()
 				| `Error msg -> fail (Failure msg) in
 			Lwt_main.run t;
@@ -133,23 +135,29 @@ let check_signed_unsigned_read () =
 			set_ring_output_prod (Cstruct.of_bigarray b1) (Int32.(succ (succ max_int)));
 			set_ring_output_cons (Cstruct.of_bigarray b2) (Int32.(pred (pred max_int)));
  			set_ring_output_prod (Cstruct.of_bigarray b2) (Int32.(succ (succ max_int)));
-			let ofs, _ = Backend.Reader.available backend in
-			Backend.Reader.advance backend ofs;
+			let ofs, _ = Xenstore_backend.Reader.available backend in
+			Xenstore_backend.Reader.advance backend ofs;
 			let _ = Old_ring.C_Xenstore.Back.unsafe_read b buf (String.length buf) in
 			compare_bufs b1 b2;
 		)
 
+
+module Console_frontend = Console_ring.Frontend(In_memory_events)
+module Console_backend = Console_ring.Backend(In_memory_events)
+
 let with_consoles fn =
 	let b1 = alloc_page () in
 	let b2 = alloc_page () in
+	Memory.zero (Cstruct.of_bigarray b1);
+	Memory.zero (Cstruct.of_bigarray b2);
 	let a = Cstruct.of_bigarray b1 in
 	let b = Old_ring.C_Console.of_buf b2 in
 				let port, channel = In_memory_events.listen 0 in
 				let channel' = In_memory_events.connect 0 port in
-				let f = Frontend.create channel a in
+				let f = Console_frontend.create channel a in
 Old_ring.C_Console.zero b;
-				let backend = Backend.create channel' (Cstruct.of_bigarray b2) in
-				Frontend.init f;
+				let backend = Console_backend.create channel' (Cstruct.of_bigarray b2) in
+				Console_frontend.init f;
 	fn b1 b2 f b backend
 
 let console_init () =
@@ -164,18 +172,18 @@ let console_hello () =
 	with_consoles
 		(fun b1 b2 a b backend ->
 			let t =
-				Frontend.write a 0l [ cstruct_of_string msg ]
+				Console_frontend.write a 0l [ cstruct_of_string msg ]
 				>>= function
 				| `Ok ofs ->
-					Frontend.Writer.advance a ofs;
+					Console_frontend.Writer.advance a ofs;
 					return ()
 				| `Error msg -> fail (Failure msg) in
 			Lwt_main.run t;
 			let _ = Old_ring.C_Console.unsafe_write b msg (String.length msg) in
 			compare_bufs b1 b2;
 
-			let ofs, buffers = Backend.Reader.available backend in
-			Backend.Reader.advance backend ofs;
+			let ofs, buffers = Console_backend.Reader.available backend in
+			Console_backend.Reader.advance backend ofs;
 			let x = to_string buffers in
 
 			assert_equal msg x;
