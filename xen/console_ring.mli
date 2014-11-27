@@ -18,23 +18,23 @@ open Shared_memory_ring
 open S
 
 module Frontend(E: EVENTS with type 'a io = 'a Lwt.t): sig
-  include PIPE
+  include CHANNEL
     with type data = Cstruct.t list
      and type position = int32
      and type 'a io = 'a Lwt.t
 
-  val create: E.channel -> Cstruct.t -> t
+  val create: ?buffer: Cstruct.t -> E.channel -> Cstruct.t -> t
 end
 (** Create an in-memory ring based on the Xen console protocol
     from the frontend's point of view *)
 
 module Backend(E: EVENTS with type 'a io = 'a Lwt.t): sig
-  include PIPE
+  include CHANNEL
     with type data = Cstruct.t list
      and type position = int32
      and type 'a io = 'a Lwt.t
 
-  val create: E.channel -> Cstruct.t -> t
+  val create: ?buffer: Cstruct.t -> E.channel -> Cstruct.t -> t
 end
 (** Create an in-memory ring based on the Xen console protocol
     from the backend's point of view *)

@@ -53,7 +53,7 @@ let check_length buffer =
   then invalid_arg "In_memory_ring.Make(...).create: buffer is impossibly small"
 
 module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
-  include Pipe.Make(E)(Layout)
+  include Ring.Make(E)(Layout)
 
   let create channel buffer =
     check_length buffer;
@@ -61,7 +61,7 @@ module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
 end
 
 module Backend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
-  include Pipe.Make(E)(Pipe.Reverse(Layout))
+  include Ring.Make(E)(Ring.Reverse(Layout))
 
   let create channel buffer =
     check_length buffer;

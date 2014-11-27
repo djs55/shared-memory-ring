@@ -15,22 +15,18 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(** Xen-style bidirectional pipes as used by Xenstore and the console *)
+(** Xen-style bidirectional buffered channels as used by Xenstore and the console *)
 
 open S
 
-module Reverse: functor(L: PIPE_LAYOUT) -> PIPE_LAYOUT
-  with type t = L.t
-   and type data = L.data
-   and type position = L.position
-(** Flip the layout around swapping the frontend and the backend *)
-
 module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_PIPE_LAYOUT): sig
-  include PIPE
+  include CHANNEL
     with type 'a io = 'a Lwt.t
      and type data = L.data list
      and type position = L.position
 
-  val create: E.channel -> L.t -> t
+  val create: ?buffer:L.data -> E.channel -> L.t -> t
+  (** Construct a channel from shared memory and an event channel, with optional
+      buffering. *)
 end
-(** Construct a pipe with a given memory layout *)
+(** A channel on top of a ring with a given memory layout *)

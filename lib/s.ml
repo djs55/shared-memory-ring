@@ -160,9 +160,8 @@ module type WINDOW = sig
   (** [wait t n] blocks until [n] units of data are available *)
 end
 
-(* XXX: PIPE implies unidirectional *)
-module type PIPE = sig
-  (** Represents a bidirectional pipe *)
+module type CHANNEL = sig
+  (** A connection which can be read from and written to *)
 
   type 'a io
 

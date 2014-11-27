@@ -12,7 +12,7 @@ Library shared_memory_ring
   Path:               lib
   Pack:               true
   Findlibname:        shared-memory-ring
-  Modules:            Ring, Pipe, BufferedPipe, Memory, In_memory_ring, In_memory_events, S
+  Modules:            Rpc, Ring, Channel, Memory, In_memory_ring, In_memory_events, S
   BuildDepends:       cstruct (>= 0.6.0), cstruct.syntax, sexplib, sexplib.syntax, lwt
   CSources:           barrier_stubs.c, barrier.h
 
@@ -40,10 +40,10 @@ Library xenstore_ring
 #  Modules:            Lwt_ring
 #  BuildDepends:       shared-memory-ring, lwt, lwt.syntax, mirage-profile
 
-Executable pipe_test
+Executable channel_test
   CompiledObject:     best
   Path:               lib_test
-  MainIs:             pipe_test.ml
+  MainIs:             channel_test.ml
   Build$:             flag(tests)
   Custom:             true
   Install:            false
@@ -77,9 +77,9 @@ Executable ring_test
 #  Install:            false
 #  BuildDepends:       lwt, lwt.unix, shared-memory-ring, shared-memory-ring.lwt
 
-Test pipe_test
+Test channel_test
   Run$:               flag(tests)
-  Command:            $pipe_test
+  Command:            $channel_test
   WorkingDirectory:   lib_test
 
 Test ring_test

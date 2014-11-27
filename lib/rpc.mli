@@ -15,20 +15,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(** Xen-style bidirectional pipes as used by Xenstore and the console *)
+(** Shared ring handling to communicate with other Xen domains. *)
 
 open S
 
-module Buffered(P: PIPE
-  with type 'a io = 'a Lwt.t
-   and type data = Cstruct.t list
-   and type position = int32
-): sig
-  include PIPE
-     with type 'a io = 'a Lwt.t
-      and type data = Cstruct.t list
-      and type position = int32
-
-  val create: buffer:Cstruct.t -> P.t -> t
-end
-(** Add a layer of buffering on top of a pipe *)
+include RPC
+(* A request/response slotted ring *)

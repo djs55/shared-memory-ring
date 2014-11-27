@@ -49,9 +49,9 @@ module Layout = struct
 end
 
 module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
-  include Pipe.Make(E)(Layout)
+  include Channel.Make(E)(Layout)
 end
 
 module Backend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
-  include Pipe.Make(E)(Pipe.Reverse(Layout))
+  include Channel.Make(E)(Ring.Reverse(Layout))
 end
