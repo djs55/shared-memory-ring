@@ -116,9 +116,6 @@ module Xenstore_write_read = Write_read(struct
 end)
 
 let _ =
-In_memory_events.next_port := 10
-
-let _ =
   let suite = "ring" >:::
     [
 		"unbuffered write then read" >:: Xenstore_write_read.test 0;

@@ -15,7 +15,5 @@
  *)
 open S
 
-val next_port: int ref
-
 module Events: EVENTS
-   with type 'a io = 'a Lwt.t
+  with type 'a io = 'a Lwt.t

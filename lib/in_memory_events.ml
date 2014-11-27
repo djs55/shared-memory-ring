@@ -19,19 +19,6 @@ open Sexplib.Std
 (* FIXME: This is duplicated from ocaml-vchan. This should probably be pushed into
    xen-evtchn *)
 
-let next_port = ref 0
-
-let channels = Array.make 1024 0
-let c = Lwt_condition.create ()
-
-type state =
-| Connected of int
-| Closed
-| Unbound
-with sexp
-
-let connected_to = Array.make 1024 Unbound
-
 module Events = struct
   open Lwt
 
@@ -42,57 +29,69 @@ module Events = struct
   let port_of_string x = `Ok (int_of_string x)
   let string_of_port = string_of_int
 
-  type channel = int with sexp_of
-  let get () =
-    incr next_port;
-    !next_port - 1
+  let next_port = ref 0
 
   type event = int with sexp_of
   let initial = 0
 
+  module Lwt_condition = struct
+    include Lwt_condition
+    type _t = unit with sexp
+    let sexp_of_t _ _ = sexp_of__t ()
+  end
+  type state =
+  | Unbound
+  | Closed
+  | ConnectedTo of channel
+  and channel = {
+    mutable events: event; (* incremented on send *)
+    c: unit Lwt_condition.t;
+    mutable state: state;
+    port: port;
+  } with sexp_of
+
+  let create () =
+    let port = !next_port in
+    incr next_port;
+    let events = initial in
+    let c = Lwt_condition.create () in
+    let state = Unbound in
+    { events; c; state; port }
+
   let rec recv channel event =
-    if channels.(channel) > event
-    then return channels.(channel)
+    if channel.events > event
+    then return channel.events
     else
-      Lwt_condition.wait c >>= fun () ->
+      Lwt_condition.wait channel.c >>= fun () ->
       recv channel event
 
-  let send channel =
-    match connected_to.(channel) with
-    | Connected otherend ->
-      channels.(otherend) <- channels.(otherend) + 1;
-      Lwt_condition.broadcast c ()
-    | x ->
-      let msg = Printf.sprintf "send: event channel %d in state %s" channel (Sexplib.Sexp.to_string_hum (sexp_of_state x)) in
-      Printf.fprintf stderr "%s\n%!" msg;
-      failwith msg
+  let send channel = match channel.state with
+  | Unbound -> failwith "send: channel is unbound"
+  | Closed -> failwith "send: channel is closed"
+  | ConnectedTo otherend ->
+    otherend.events <- otherend.events + 1;
+    Lwt_condition.broadcast otherend.c ()
+
+  module IntMap = Map.Make(struct type t = int let compare (a: int) (b: int) = compare a b end)
+  let listening = ref IntMap.empty
 
   let listen _ =
-    let port = get () in
-    match connected_to.(port) with
-    | Connected _ -> assert false
-    | _ ->
-      Printf.fprintf stderr "%d listen\n%!" port;
-      port, port
+    let t = create () in
+    listening := IntMap.add t.port t !listening;
+    t.port, t
 
   let connect _ port =
-    let port' = get () in
-    connected_to.(port') <- Connected port;
-    connected_to.(port) <- Connected port';
-    Printf.fprintf stderr "%d <-> %d\n%!" port port';
-    port'
+    let other = IntMap.find port !listening in
+    listening := IntMap.remove port !listening;
+    let this = create () in
+    this.state <- ConnectedTo other;
+    other.state <- ConnectedTo this;
+    this
 
-  let close port =
-    channels.(port) <- 0;
-    Printf.fprintf stderr "%d close\n%!" port;
-    connected_to.(port) <- Closed
+  let close t = match t.state with
+  | ConnectedTo other ->
+    other.state <- Closed;
+    t.state <- Closed
+  | _ -> ()
 
-  let assert_cleaned_up () =
-    for i = 0 to Array.length connected_to - 1 do
-      match connected_to.(i) with
-      | Connected _ ->
-        Printf.fprintf stderr "Some event channels are still connected\n%!";
-        failwith "some event channels are still connected"
-      | _ -> ()
-    done
 end
