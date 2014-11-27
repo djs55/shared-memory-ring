@@ -76,9 +76,9 @@ module Write_read(X: M) = struct
     | 0 -> None
     | n -> Some (Cstruct.create n) in
 		let page = Cstruct.of_bigarray (alloc_page ()) in
-		let port, channel = In_memory_events.listen 0 in
+		let port, channel = In_memory_events.Events.listen 0 in
+    let channel' = In_memory_events.Events.connect 0 port in
 		let f = X.Frontend.create ?buffer:frontend_buffer channel page in
-		let channel' = In_memory_events.connect 0 port in
 		let b = X.Backend.create ?buffer:backend_buffer channel' page in
 		let message = "hello" in
 		(* No data is available for reading *)
