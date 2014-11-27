@@ -56,14 +56,14 @@ module type M = sig
       with type data = Cstruct.t list
        and type position = int32
        and type 'a io = 'a Lwt.t
-		val create: ?buffer:Cstruct.t -> Shared_memory_ring.In_memory_events.channel -> Cstruct.t -> t
+		val create: ?buffer:Cstruct.t -> Shared_memory_ring.In_memory_events.Events.channel -> Cstruct.t -> t
 	end
   module Backend: sig
 	  include S.CHANNEL
       with type data = Cstruct.t list
        and type position = int32
        and type 'a io = 'a Lwt.t
-		val create: ?buffer:Cstruct.t -> Shared_memory_ring.In_memory_events.channel -> Cstruct.t -> t
+		val create: ?buffer:Cstruct.t -> Shared_memory_ring.In_memory_events.Events.channel -> Cstruct.t -> t
   end
 end
 
@@ -111,15 +111,18 @@ module Write_read(X: M) = struct
 end
 
 module Xenstore_write_read = Write_read(struct
-	module Frontend = Xenstore_ring.Frontend(In_memory_events)
-	module Backend = Xenstore_ring.Backend(In_memory_events)
+	module Frontend = Xenstore_ring.Frontend(In_memory_events.Events)
+	module Backend = Xenstore_ring.Backend(In_memory_events.Events)
 end)
+
+let _ =
+In_memory_events.next_port := 10
 
 let _ =
   let suite = "ring" >:::
     [
 		"unbuffered write then read" >:: Xenstore_write_read.test 0;
-    "buffered write then read" >:: Xenstore_write_read.test 32;
+		"buffered write then read" >:: Xenstore_write_read.test 32;
 		"buffered write then read" >:: Xenstore_write_read.test 64;
 		"buffered write then read" >:: Xenstore_write_read.test 512;
 		"buffered write then read" >:: Xenstore_write_read.test 1024;

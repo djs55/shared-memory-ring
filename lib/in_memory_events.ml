@@ -19,6 +19,19 @@ open Sexplib.Std
 (* FIXME: This is duplicated from ocaml-vchan. This should probably be pushed into
    xen-evtchn *)
 
+let next_port = ref 0
+
+let channels = Array.make 1024 0
+let c = Lwt_condition.create ()
+
+type state =
+| Connected of int
+| Closed
+| Unbound
+with sexp
+
+let connected_to = Array.make 1024 Unbound
+
 module Events = struct
   open Lwt
 
@@ -30,17 +43,12 @@ module Events = struct
   let string_of_port = string_of_int
 
   type channel = int with sexp_of
-  let get =
-    let g = ref 0 in
-    fun () ->
-      incr g;
-      !g - 1
+  let get () =
+    incr next_port;
+    !next_port - 1
 
   type event = int with sexp_of
   let initial = 0
-
-  let channels = Array.make 1024 0
-  let c = Lwt_condition.create ()
 
   let rec recv channel event =
     if channels.(channel) > event
@@ -49,38 +57,42 @@ module Events = struct
       Lwt_condition.wait c >>= fun () ->
       recv channel event
 
-  let connected_to = Array.make 1024 (-1)
-
   let send channel =
-    let listening = connected_to.(channel) in
-    if listening = -1 then begin
-      Printf.fprintf stderr "send: event channel %d is closed\n%!" channel;
-      failwith (Printf.sprintf "send: event channel %d is closed" channel);
-    end;
-    channels.(listening) <- channels.(listening) + 1;
-    Lwt_condition.broadcast c ()
+    match connected_to.(channel) with
+    | Connected otherend ->
+      channels.(otherend) <- channels.(otherend) + 1;
+      Lwt_condition.broadcast c ()
+    | x ->
+      let msg = Printf.sprintf "send: event channel %d in state %s" channel (Sexplib.Sexp.to_string_hum (sexp_of_state x)) in
+      Printf.fprintf stderr "%s\n%!" msg;
+      failwith msg
 
   let listen _ =
     let port = get () in
-    port, port
+    match connected_to.(port) with
+    | Connected _ -> assert false
+    | _ ->
+      Printf.fprintf stderr "%d listen\n%!" port;
+      port, port
 
   let connect _ port =
     let port' = get () in
-    connected_to.(port') <- port;
-    connected_to.(port) <- port';
+    connected_to.(port') <- Connected port;
+    connected_to.(port) <- Connected port';
+    Printf.fprintf stderr "%d <-> %d\n%!" port port';
     port'
 
   let close port =
     channels.(port) <- 0;
-    connected_to.(port) <- -1
+    Printf.fprintf stderr "%d close\n%!" port;
+    connected_to.(port) <- Closed
 
   let assert_cleaned_up () =
     for i = 0 to Array.length connected_to - 1 do
-      if connected_to.(i) <> (-1) then begin
+      match connected_to.(i) with
+      | Connected _ ->
         Printf.fprintf stderr "Some event channels are still connected\n%!";
         failwith "some event channels are still connected"
-      end
+      | _ -> ()
     done
 end
-
-include Events

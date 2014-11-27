@@ -47,8 +47,8 @@ let cstruct_of_string s =
 
 let to_string x = String.concat "" (List.map Cstruct.to_string x)
 
-module Xenstore_frontend = Xenstore_ring.Frontend(In_memory_events)
-module Xenstore_backend = Xenstore_ring.Backend(In_memory_events)
+module Xenstore_frontend = Xenstore_ring.Frontend(In_memory_events.Events)
+module Xenstore_backend = Xenstore_ring.Backend(In_memory_events.Events)
 
 let with_xenstores fn =
 	let b1 = alloc_page () in
@@ -57,8 +57,8 @@ let with_xenstores fn =
 	Memory.zero (Cstruct.of_bigarray b2);
 	let a = Cstruct.of_bigarray b1 in
 	let b = Old_ring.C_Xenstore.of_buf b2 in
-        let port, channel = In_memory_events.listen 0 in
-				let channel' = In_memory_events.connect 0 port in
+        let port, channel = In_memory_events.Events.listen 0 in
+				let channel' = In_memory_events.Events.connect 0 port in
         let f = Xenstore_frontend.create channel a in
 Old_ring.C_Xenstore.zero b;
 				let backend = Xenstore_backend.create channel' (Cstruct.of_bigarray b2) in
@@ -142,8 +142,8 @@ let check_signed_unsigned_read () =
 		)
 
 
-module Console_frontend = Console_ring.Frontend(In_memory_events)
-module Console_backend = Console_ring.Backend(In_memory_events)
+module Console_frontend = Console_ring.Frontend(In_memory_events.Events)
+module Console_backend = Console_ring.Backend(In_memory_events.Events)
 
 let with_consoles fn =
 	let b1 = alloc_page () in
@@ -152,8 +152,8 @@ let with_consoles fn =
 	Memory.zero (Cstruct.of_bigarray b2);
 	let a = Cstruct.of_bigarray b1 in
 	let b = Old_ring.C_Console.of_buf b2 in
-				let port, channel = In_memory_events.listen 0 in
-				let channel' = In_memory_events.connect 0 port in
+				let port, channel = In_memory_events.Events.listen 0 in
+				let channel' = In_memory_events.Events.connect 0 port in
 				let f = Console_frontend.create channel a in
 Old_ring.C_Console.zero b;
 				let backend = Console_backend.create channel' (Cstruct.of_bigarray b2) in

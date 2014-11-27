@@ -15,5 +15,7 @@
  *)
 open S
 
-include EVENTS
+val next_port: int ref
+
+module Events: EVENTS
    with type 'a io = 'a Lwt.t
