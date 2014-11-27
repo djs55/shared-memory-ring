@@ -19,7 +19,7 @@ open Memory
 open Sexplib.Std
 open Lwt
 
-module Reverse(RW: PIPE_LAYOUT) = struct
+module Reverse(RW: BYTE_RING_LAYOUT) = struct
   type t = RW.t
   type position = RW.position with sexp
   type data = RW.data
@@ -40,7 +40,7 @@ module Reverse(RW: PIPE_LAYOUT) = struct
   let set_ring_output_prod = RW.set_ring_input_prod
 end
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
+module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = struct
   type 'a io = 'a Lwt.t
 
   type t' = {

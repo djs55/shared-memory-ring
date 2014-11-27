@@ -55,7 +55,7 @@ module Proxy(A: CHANNEL
     loop ()
 end
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_PIPE_LAYOUT) = struct
+module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = struct
   module Raw = Ring.Make(E)(RW)
 
   module BufferFrontend = In_memory_ring.Frontend(In_memory_events)

@@ -19,7 +19,7 @@
 
 open S
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_PIPE_LAYOUT): sig
+module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_BYTE_RING_LAYOUT): sig
   include CHANNEL
     with type 'a io = 'a Lwt.t
      and type data = L.data list

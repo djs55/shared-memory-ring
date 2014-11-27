@@ -196,8 +196,8 @@ module type CHANNEL = sig
      and type position = position
 end
 
-module type PIPE_LAYOUT = sig
-  (** The memory layout of a PIPE stored in shared memory *)
+module type BYTE_RING_LAYOUT = sig
+  (** The memory layout of a byte ring stored in shared memory *)
 
   type t
 
@@ -220,7 +220,7 @@ module type PIPE_LAYOUT = sig
   val set_ring_output_prod: t -> position -> unit
 end
 
-module type XEN_PIPE_LAYOUT = PIPE_LAYOUT
+module type XEN_BYTE_RING_LAYOUT = BYTE_RING_LAYOUT
   with type t = Cstruct.t
    and type data = Cstruct.t
    and type position = int32

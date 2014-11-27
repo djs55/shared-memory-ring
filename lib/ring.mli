@@ -19,13 +19,13 @@
 
 open S
 
-module Reverse: functor(L: PIPE_LAYOUT) -> PIPE_LAYOUT
+module Reverse: functor(L: XEN_BYTE_RING_LAYOUT) -> BYTE_RING_LAYOUT
   with type t = L.t
    and type data = L.data
    and type position = L.position
 (** Flip the layout around swapping the frontend and the backend *)
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_PIPE_LAYOUT): sig
+module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_BYTE_RING_LAYOUT): sig
   include CHANNEL
     with type 'a io = 'a Lwt.t
      and type data = L.data list
