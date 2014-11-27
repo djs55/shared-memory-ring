@@ -66,12 +66,18 @@ module type M = sig
 end
 
 module Write_read(X: M) = struct
-	let test () =
+	let test buffer_size () =
+	  let frontend_buffer = match buffer_size with
+		| 0 -> None
+		| n -> Some (Cstruct.create n) in
+    let backend_buffer = match buffer_size with
+    | 0 -> None
+    | n -> Some (Cstruct.create n) in
 		let page = Cstruct.of_bigarray (alloc_page ()) in
 		let port, channel = In_memory_events.listen 0 in
-		let f = X.Frontend.create channel page in
+		let f = X.Frontend.create ?buffer:frontend_buffer channel page in
 		let channel' = In_memory_events.connect 0 port in
-		let b = X.Backend.create channel' page in
+		let b = X.Backend.create ?buffer:backend_buffer channel' page in
 		let message = "hello" in
 		(* No data is available for reading *)
 		let rec loop ofs =
@@ -85,6 +91,8 @@ module Write_read(X: M) = struct
 					>>= function
 					| `Ok ofs ->
 						X.Frontend.Writer.advance f ofs;
+						X.Backend.Reader.wait b (String.length message)
+						>>= fun () ->
 						return (X.Backend.Reader.available b)
 					| `Error x ->
 						fail (Failure x) in
@@ -108,6 +116,10 @@ end)
 let _ =
   let suite = "ring" >:::
     [
-		"write then read" >:: Xenstore_write_read.test;
+		"unbuffered write then read" >:: Xenstore_write_read.test 0;
+    "buffered write then read" >:: Xenstore_write_read.test 32;
+		"buffered write then read" >:: Xenstore_write_read.test 64;
+		"buffered write then read" >:: Xenstore_write_read.test 512;
+		"buffered write then read" >:: Xenstore_write_read.test 1024;
     ] in
   OUnit2.run_test_tt_main (OUnit.ounit2_of_ounit1 suite)

@@ -27,7 +27,7 @@ module Proxy(A: CHANNEL
   with type data = Cstruct.t list
    and type position = int32
    and type 'a io = 'a Lwt.t) = struct
-  let rec forever a b =
+  let rec forever name a b =
     let rec loop () =
       A.Reader.wait a 1
       >>= fun () ->
@@ -76,15 +76,16 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = st
     | None -> Unbuffered p
     | Some buffer ->
       let port, channel = In_memory_events.listen 0 in
-      let channel = In_memory_events.connect 0 port in
+      let channel' = In_memory_events.connect 0 port in
       (* Create a backend and service it by proxying too and from
          the real pipe *)
       let backend = BufferBackend.create channel buffer in
+      BufferBackend.init backend;
       let module LR = Proxy(BufferBackend)(Raw) in
-      let _ = LR.forever backend p in
+      let _ = LR.forever "buffer->raw" backend p in
       let module RL = Proxy(Raw)(BufferBackend) in
-      let _ = RL.forever p backend in
-      Buffered (BufferFrontend.create channel buffer)
+      let _ = RL.forever "raw->buffer" p backend in
+      Buffered (BufferFrontend.create channel' buffer)
 
   let init = function
   | Buffered t -> BufferFrontend.init t

@@ -130,25 +130,41 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = st
     else if output_len < buffer_len
     then return (`Error (Printf.sprintf "write argument is longer (%d) than the total ring output buffer (%d)" buffer_len output_len))
     else begin
-      Writer.wait t buffer_len
-      >>= fun () ->
-      let ofs', buffer's = Writer.available t in
-      if ofs' < ofs
-      then return (`Error (Printf.sprintf "stream has lost data (ofs' = %ld < ofs = %ld)" ofs' ofs))
+      (* We don't know where we are in the stream yet *)
+      ( let ofs', buffer's = Writer.available t in
+        let skip = Int32.(to_int (sub ofs ofs')) in
+        if List.fold_left (+) 0 (List.map Cstruct.len buffer's) - skip >= buffer_len
+        then return (ofs', buffer's)
+        else begin
+          Writer.wait t buffer_len
+          >>= fun () ->
+          return (Writer.available t)
+        end
+      ) >>= fun (ofs', buffer's) ->
+      if ofs' > ofs
+      then return (`Error (Printf.sprintf "stream has lost data (ofs' = %ld > ofs = %ld)" ofs' ofs))
       else begin
-        let skip = Int32.(to_int (sub ofs' ofs)) in
-        let buffer = Cstruct.shift buffer skip in
-        let rec loop ofs' buffer buffer's = match buffer's with
-        | [] ->
-          assert (Cstruct.len buffer = 0); (* Or else wait returned too soon *)
-          return (`Ok ofs')
-        | buffer' :: buffer's ->
-          let len = min (Cstruct.len buffer') (Cstruct.len buffer) in
-          Cstruct.blit buffer 0 buffer' 0 len;
-          let buffer = Cstruct.shift buffer len in
-          let ofs' = Int32.(add ofs' (of_int len)) in
-          loop ofs' buffer buffer's in
-       loop ofs' buffer buffer's
+        (* The client decides when to advance the stream, so we have to track
+           where we are in the 'available' data *)
+        let skip = Int32.(to_int (sub ofs ofs')) in
+        let rec loop ofs' skip buffer buffer's =
+          if Cstruct.len buffer = 0 then begin
+            return (`Ok ofs')
+          end else match buffer's with
+          | [] ->
+            (* wait must have returned too soon, there is not enough space *)
+            assert false
+          | buffer' :: buffer's ->
+            let buffer', skip =
+              let available = Cstruct.len buffer' in
+              let to_skip_now = min skip available in
+              Cstruct.shift buffer' to_skip_now, skip - to_skip_now in
+            let len = min (Cstruct.len buffer') (Cstruct.len buffer) in
+            Cstruct.blit buffer 0 buffer' 0 len;
+            let buffer = Cstruct.shift buffer len in
+            let ofs' = Int32.(add ofs' (of_int len)) in
+            loop ofs' skip buffer buffer's in
+       loop ofs' skip buffer buffer's
      end
    end
 

@@ -33,5 +33,8 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_BYTE_RING_LAYOUT): sig
 
   val create: E.channel -> L.t -> t
   (** Construct a ring from shared memory and an event channel *)
+
+  val init: t -> unit
+  (** Reset the ring to an initial state containing no data *)
 end
 (** A ring with a given memory layout *)
