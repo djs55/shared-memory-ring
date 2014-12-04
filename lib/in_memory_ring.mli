@@ -16,7 +16,7 @@
  *)
 open S
 
-module Frontend(E: EVENTS with type 'a io = 'a Lwt.t): sig
+module Frontend(E: Evtchn.S.EVENTS with type 'a io = 'a Lwt.t): sig
   include CHANNEL
     with type data = Cstruct.t list
      and type position = int32
@@ -29,7 +29,7 @@ end
 
 (** Create a shared ring from the given memory buffer. Note the layout is
     decided by the implementation: it is not a standard protocol. *)
-module Backend(E: EVENTS with type 'a io = 'a Lwt.t): sig
+module Backend(E: Evtchn.S.EVENTS with type 'a io = 'a Lwt.t): sig
   include CHANNEL
     with type data = Cstruct.t list
      and type position = int32

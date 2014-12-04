@@ -40,7 +40,7 @@ module Reverse(RW: BYTE_RING_LAYOUT) = struct
   let set_ring_output_prod = RW.set_ring_input_prod
 end
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = struct
+module Make(E: Evtchn.S.EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = struct
   type 'a io = 'a Lwt.t
 
   type t' = {

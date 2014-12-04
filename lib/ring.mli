@@ -25,7 +25,7 @@ module Reverse: functor(L: XEN_BYTE_RING_LAYOUT) -> BYTE_RING_LAYOUT
    and type position = L.position
 (** Flip the layout around swapping the frontend and the backend *)
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_BYTE_RING_LAYOUT): sig
+module Make(E: Evtchn.S.EVENTS with type 'a io = 'a Lwt.t)(L: XEN_BYTE_RING_LAYOUT): sig
   include CHANNEL
     with type 'a io = 'a Lwt.t
      and type data = L.data list

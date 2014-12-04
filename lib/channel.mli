@@ -19,13 +19,13 @@
 
 open S
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t)(L: XEN_BYTE_RING_LAYOUT): sig
+module Make(E: Evtchn.S.EVENTS with type 'a io = 'a Lwt.t)(L: XEN_BYTE_RING_LAYOUT): sig
   include CHANNEL
     with type 'a io = 'a Lwt.t
      and type data = L.data list
      and type position = L.position
 
-  val create: ?buffer:L.data -> E.channel -> L.t -> t
+  val create: ?buffer:L.data -> E.channel -> L.t -> t Lwt.t
   (** Construct a channel from shared memory and an event channel, with optional
       buffering. *)
 end

@@ -56,30 +56,35 @@ module type M = sig
       with type data = Cstruct.t list
        and type position = int32
        and type 'a io = 'a Lwt.t
-		val create: ?buffer:Cstruct.t -> Shared_memory_ring.In_memory_events.Events.channel -> Cstruct.t -> t
+		val create: ?buffer:Cstruct.t -> Inheap_events.channel -> Cstruct.t -> t Lwt.t
 	end
   module Backend: sig
 	  include S.CHANNEL
       with type data = Cstruct.t list
        and type position = int32
        and type 'a io = 'a Lwt.t
-		val create: ?buffer:Cstruct.t -> Shared_memory_ring.In_memory_events.Events.channel -> Cstruct.t -> t
+		val create: ?buffer:Cstruct.t -> Inheap_events.channel -> Cstruct.t -> t Lwt.t
   end
 end
 
 module Write_read(X: M) = struct
 	let test buffer_size () =
-	  let frontend_buffer = match buffer_size with
+		let frontend_buffer = match buffer_size with
 		| 0 -> None
 		| n -> Some (Cstruct.create n) in
-    let backend_buffer = match buffer_size with
-    | 0 -> None
-    | n -> Some (Cstruct.create n) in
-		let page = Cstruct.of_bigarray (alloc_page ()) in
-		let port, channel = In_memory_events.Events.listen 0 in
-    let channel' = In_memory_events.Events.connect 0 port in
-		let f = X.Frontend.create ?buffer:frontend_buffer channel page in
-		let b = X.Backend.create ?buffer:backend_buffer channel' page in
+	let backend_buffer = match buffer_size with
+		| 0 -> None
+ 		| n -> Some (Cstruct.create n) in
+	let page = Cstruct.of_bigarray (alloc_page ()) in
+	let t =
+		Inheap_events.listen 0
+		>>= fun (port, channel) ->
+		Inheap_events.connect 0 port
+		>>= fun channel' ->
+		X.Frontend.create ?buffer:frontend_buffer channel page
+		>>= fun f ->
+		X.Backend.create ?buffer:backend_buffer channel' page
+		>>= fun b ->
 		let message = "hello" in
 		(* No data is available for reading *)
 		let rec loop ofs =
@@ -88,31 +93,32 @@ module Write_read(X: M) = struct
 				let data = to_string buffers in
 				assert_equal ~printer:Int32.to_string ofs ofs';
 				assert_equal ~printer:(fun x -> String.escaped x) "" data;
-				let t =
-					X.Frontend.write f ofs [ cstruct_of_string message ]
-					>>= function
-					| `Ok ofs ->
-						X.Frontend.Writer.advance f ofs;
-						X.Backend.Reader.wait b (String.length message)
-						>>= fun () ->
-						return (X.Backend.Reader.available b)
-					| `Error x ->
-						fail (Failure x) in
-					let ofs', buffers = Lwt_main.run t in
+				X.Frontend.write f ofs [ cstruct_of_string message ]
+				>>= function
+				| `Ok ofs ->
+					X.Frontend.Writer.advance f ofs
+					>>= fun () ->
+					X.Backend.Reader.wait b (String.length message)
+					>>= fun () ->
+					let ofs', buffers = X.Backend.Reader.available b in
 					let buffer = to_string buffers in
 					assert_equal ~printer:Int32.to_string ofs ofs';
 					assert_equal ~printer:string_of_int (String.length message) (String.length buffer);
 					assert_equal ~printer:(fun x -> String.escaped x) message buffer;
 					let ofs' = Int32.(add ofs' (of_int (String.length buffer))) in
-					X.Backend.Reader.advance b ofs';
-				loop ofs'
-			end in
-	loop 0l
+					X.Backend.Reader.advance b ofs'
+					>>= fun () ->
+					loop ofs'
+				| `Error x ->
+					fail (Failure x)
+			end else return () in
+		loop 0l in
+	Lwt_main.run t
 end
 
 module Xenstore_write_read = Write_read(struct
-	module Frontend = Xenstore_ring.Frontend(In_memory_events.Events)
-	module Backend = Xenstore_ring.Backend(In_memory_events.Events)
+	module Frontend = Xenstore_ring.Frontend(Inheap_events)
+	module Backend = Xenstore_ring.Backend(Inheap_events)
 end)
 
 let _ =

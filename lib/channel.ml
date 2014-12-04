@@ -48,18 +48,20 @@ module Proxy(A: CHANNEL
       B.write b pos' (take (min len len') data)
       >>= function
       | `Ok pos'' ->
-        B.Writer.advance b pos'';
-        A.Reader.advance a pos'';
+        B.Writer.advance b pos''
+        >>= fun () ->
+        A.Reader.advance a pos''
+        >>= fun () ->
         loop ()
       | `Error m -> fail (Failure m) in
     loop ()
 end
 
-module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = struct
+module Make(E: Evtchn.S.EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = struct
   module Raw = Ring.Make(E)(RW)
 
-  module BufferFrontend = In_memory_ring.Frontend(In_memory_events.Events)
-  module BufferBackend  = In_memory_ring.Backend(In_memory_events.Events)
+  module BufferFrontend = In_memory_ring.Frontend(Inheap_events)
+  module BufferBackend  = In_memory_ring.Backend(Inheap_events)
 
   type position = int32 with sexp
   type data = Cstruct.t list
@@ -73,10 +75,12 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = st
   let create ?buffer ev ring =
     let p = Raw.create ev ring in
     match buffer with
-    | None -> Unbuffered p
+    | None -> return (Unbuffered p)
     | Some buffer ->
-      let port, channel = In_memory_events.Events.listen 0 in
-      let channel' = In_memory_events.Events.connect 0 port in
+      Inheap_events.listen 0
+      >>= fun (port, channel) ->
+      Inheap_events.connect 0 port
+      >>= fun channel' ->
       (* Create a backend and service it by proxying too and from
          the real pipe *)
       let backend = BufferBackend.create channel buffer in
@@ -85,7 +89,7 @@ module Make(E: EVENTS with type 'a io = 'a Lwt.t)(RW: XEN_BYTE_RING_LAYOUT) = st
       let _ = LR.forever "buffer->raw" backend p in
       let module RL = Proxy(Raw)(BufferBackend) in
       let _ = RL.forever "raw->buffer" p backend in
-      Buffered (BufferFrontend.create channel' buffer)
+      return (Buffered (BufferFrontend.create channel' buffer))
 
   let init = function
   | Buffered t -> BufferFrontend.init t

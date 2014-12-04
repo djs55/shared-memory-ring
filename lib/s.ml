@@ -148,7 +148,7 @@ module type WINDOW = sig
       reveal (for reading or writing) the same data items.
       To advance the stream call [advance new_position] *)
 
-  val advance: t -> position -> unit
+  val advance: t -> position -> unit io
   (** [advanced stream position] declares that we have processed all data up to
       [position] and therefore any buffers may be recycled. *)
 
@@ -224,50 +224,3 @@ module type XEN_BYTE_RING_LAYOUT = BYTE_RING_LAYOUT
   with type t = Cstruct.t
    and type data = Cstruct.t
    and type position = int32
-
-module type EVENTS = sig
-  type 'a io
-
-  type port with sexp_of
-  (** an identifier for a source of events. Ports are allocated by calls to
-      [listen], then exchanged out-of-band (typically by xenstore) and
-      finally calls to [connect] creates a channel between the two domains.
-      Events are send and received over these channels. *)
-
-  val port_of_string: string -> [ `Ok of port | `Error of string ]
-  val string_of_port: port -> string
-
-  type channel with sexp_of
-  (** a channel is the connection between two domains and is used to send
-      and receive events. *)
-
-  type event with sexp_of
-  (** an event notification received from a remote domain. Events contain no
-      data and may be coalesced. Domains which are blocked will be woken up
-      by an event. *)
-
-  val initial: event
-  (** represents an event which 'fired' when the program started *)
-
-  val recv: channel -> event -> event io
-  (** [recv channel event] blocks until the system receives an event
-      newer than [event] on channel [channel]. If an event is received
-      while we aren't looking then this will be remembered and the
-      next call to [after] will immediately unblock. If the system
-      is suspended and then resumed, all event channel bindings are invalidated
-      and this function will fail with Generation.Invalid *)
-
-  val send: channel -> unit
-  (** [send channel] sends an event along [channel], to another domain
-      which will be woken up *)
-
-  val listen: int -> port * channel
-  (** [listen domid] allocates a fresh port and event channel. The port
-      may be supplied to [connect] *)
-
-  val connect: int -> port -> channel
-  (** [connect domid port] connects an event channel to [port] on [domid] *)
-
-  val close: channel -> unit
-  (** [close channel] closes this side of an event channel *)
-end

@@ -52,7 +52,7 @@ let check_length buffer =
   if Cstruct.len buffer < (Layout._output_prod + 4 + 1 + 1)
   then invalid_arg "In_memory_ring.Make(...).create: buffer is impossibly small"
 
-module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+module Frontend(E: Evtchn.S.EVENTS with type 'a io = 'a Lwt.t) = struct
   include Ring.Make(E)(Layout)
 
   let create channel buffer =
@@ -60,7 +60,7 @@ module Frontend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
     create channel buffer
 end
 
-module Backend(E: S.EVENTS with type 'a io = 'a Lwt.t) = struct
+module Backend(E: Evtchn.S.EVENTS with type 'a io = 'a Lwt.t) = struct
   include Ring.Make(E)(Ring.Reverse(Layout))
 
   let create channel buffer =
