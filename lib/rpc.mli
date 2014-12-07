@@ -23,4 +23,6 @@ module Make(
   E : Evtchn.S.EVENTS
         with type 'a io = 'a Lwt.t)(
   M: Memory.S.MEMORY) : RPC
+        with type buf = Cstruct.t
+         and type channel = E.channel
 (* A request/response slotted ring *)
