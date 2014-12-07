@@ -19,5 +19,8 @@
 
 open S
 
-include RPC
+module Make(
+  E : Evtchn.S.EVENTS
+        with type 'a io = 'a Lwt.t)(
+  M: Memory.S.MEMORY) : RPC
 (* A request/response slotted ring *)

@@ -16,7 +16,7 @@
  *)
 open Sexplib.Std
 open Shared_memory_ring
-open Memory
+open Mem
 
 module Layout = struct
 

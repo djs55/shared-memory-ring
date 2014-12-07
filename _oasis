@@ -12,8 +12,8 @@ Library shared_memory_ring
   Path:               lib
   Pack:               true
   Findlibname:        shared-memory-ring
-  Modules:            Rpc, Ring, Channel, Memory, In_memory_ring, S
-  BuildDepends:       cstruct (>= 0.6.0), cstruct.syntax, sexplib, sexplib.syntax, lwt, xen-evtchn, xen-evtchn.inheap
+  Modules:            Rpc, Ring, Channel, Mem, In_memory_ring, S
+  BuildDepends:       cstruct (>= 0.6.0), cstruct.syntax, sexplib, sexplib.syntax, lwt, xen-evtchn, xen-evtchn.inheap, xen-gnt, xen-gnt.inheap, mirage-profile
   CSources:           barrier_stubs.c, barrier.h
 
 Library console_ring

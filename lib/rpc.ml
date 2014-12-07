@@ -14,9 +14,11 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-
-open Memory
+open Lwt
+open Mem
 open Printf
+
+exception Shutdown
 
 type buf = Cstruct.t
 
@@ -112,18 +114,30 @@ let length t = Cstruct.len t
     let off = sring.header_size + (idx * sring.idx_size) in
     sub sring.buf off sring.idx_size
 
+module Make(E : Evtchn.S.EVENTS with type 'a io = 'a Lwt.t)(M: Memory.S.MEMORY) = struct
+
+  type buf = Cstruct.t
+  type channel = E.channel
+
   module Front = struct
 
     type ('a,'b) t = {
       mutable req_prod_pvt: int;
       mutable rsp_cons: int;
       sring: sring;
+      channel: E.channel;
+      wakers: ('b, 'a Lwt.u) Hashtbl.t; (* id * wakener *)
+      waiters: unit Lwt.u Lwt_sequence.t;
+      string_of_id: 'b -> string;
     }
 
-    let init ~sring =
+    let init ~buf ~idx_size ~name channel string_of_id =
+      let sring = of_buf ~buf ~idx_size ~name in
       let req_prod_pvt = 0 in
       let rsp_cons = 0 in
-      { req_prod_pvt; rsp_cons; sring }
+      let wakers = Hashtbl.create 7 in
+      let waiters = Lwt_sequence.create () in
+      { req_prod_pvt; rsp_cons; sring; channel; wakers; waiters; string_of_id }
 
     let slot t idx = slot t.sring idx
     let nr_ents t = t.sring.nr_ents
@@ -185,6 +199,79 @@ let length t = Cstruct.len t
         (if nr_free_requests > 0
          then Printf.sprintf "%d free request slots" nr_free_requests
          else "all slots are full")
+
+    let rec get_free_slot t =
+      if get_free_requests t > 0 then
+        return (next_req_id t)
+      else begin
+         let th, u = MProf.Trace.named_task "ring.get_free_slot" in
+         let node = Lwt_sequence.add_r u t.waiters in
+         Lwt.on_cancel th (fun _ -> Lwt_sequence.remove node);
+         th
+         >>= fun () ->
+         get_free_slot t
+      end
+
+    let poll t respfn =
+      ack_responses t (fun slot ->
+        MProf.Trace.label "ring.poll ack_response";
+        let id, resp = respfn slot in
+        try
+          let u = Hashtbl.find t.wakers id in
+          Hashtbl.remove t.wakers id;
+          Lwt.wakeup u resp
+        with Not_found ->
+          printf "RX: ack (id = %s) wakener not found\n" (t.string_of_id id);
+          printf "    valid ids = [ %s ]\n%!"
+            (String.concat "; "
+            (List.map t.string_of_id
+              (Hashtbl.fold (fun k _ acc -> k :: acc) t.wakers [])));
+            );
+          (* Check for any sleepers waiting for free space *)
+          match Lwt_sequence.take_opt_l t.waiters with
+          | None -> ()
+          | Some u -> Lwt.wakeup u ()
+
+    let write t reqfn =
+      get_free_slot t
+      >>= fun slot_id ->
+      let slot = slot t slot_id in
+      let th, u = MProf.Trace.named_task "ring.write" in
+      let id = reqfn slot in
+      Lwt.on_cancel th (fun _ -> Hashtbl.remove t.wakers id);
+      Hashtbl.add t.wakers id u;
+      return th
+
+    let push t =
+      if push_requests_and_check_notify t
+      then E.send t.channel
+      else return ()
+
+    let push_request_and_wait t reqfn =
+      write t reqfn
+      >>= fun th ->
+      push t
+      >>= fun () ->
+      th
+
+    let push_request_async t reqfn freefn =
+      write t reqfn
+      >>= fun th ->
+      push t
+      >>= fun () ->
+      let _ = freefn th in
+      return ()
+
+    let shutdown t =
+      Hashtbl.iter (fun id th ->
+        Lwt.wakeup_exn th Shutdown
+      ) t.wakers;
+      (* Check for any sleepers waiting for free space *)
+      let rec loop () =
+        match Lwt_sequence.take_opt_l t.waiters with
+        | None -> ()
+        | Some u -> Lwt.wakeup_exn u Shutdown; loop ()
+      in loop ()
   end
 
   module Back = struct
@@ -193,12 +280,14 @@ let length t = Cstruct.len t
       mutable rsp_prod_pvt: int;
       mutable req_cons: int;
       sring: sring;
+      channel: E.channel;
     }
 
-    let init ~sring =
+    let init ~buf ~idx_size ~name channel string_of_id =
+      let sring = of_buf ~buf ~idx_size ~name in
       let rsp_prod_pvt = 0 in
       let req_cons = 0 in
-      { rsp_prod_pvt; req_cons; sring }
+      { rsp_prod_pvt; req_cons; sring; channel }
 
     let slot t idx = slot t.sring idx
 
@@ -263,4 +352,16 @@ let length t = Cstruct.len t
         fn slot;
       done;
       if check_for_requests t then ack_requests t fn
+
+    let push_response t rspfn =
+      let slot_id = next_res_id t in
+      let slot = slot t slot_id in
+      rspfn slot;
+      if push_responses_and_check_notify t
+      then E.send t.channel
+      else return ()
+
+    let poll t fn =
+      ack_requests t fn
   end
+end

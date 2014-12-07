@@ -15,7 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open Sexplib.Std
-open Memory
+open Mem
 
 module Layout = struct
 

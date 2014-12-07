@@ -22,7 +22,7 @@ let id x = x
 
 let alloc_page () =
 	let page = Bigarray.Array1.create Bigarray.char Bigarray.c_layout 4096 in
-	Memory.zero (Cstruct.of_bigarray page);
+	Mem.zero (Cstruct.of_bigarray page);
 	page
 
 let length t = Cstruct.len t

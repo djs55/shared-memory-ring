@@ -53,8 +53,8 @@ module Xenstore_backend = Xenstore_ring.Backend(Inheap_events)
 let with_xenstores fn =
 	let b1 = alloc_page () in
 	let b2 = alloc_page () in
-	Memory.zero (Cstruct.of_bigarray b1);
-	Memory.zero (Cstruct.of_bigarray b2);
+	Mem.zero (Cstruct.of_bigarray b1);
+	Mem.zero (Cstruct.of_bigarray b2);
 	let a = Cstruct.of_bigarray b1 in
 	let b = Old_ring.C_Xenstore.of_buf b2 in
         let port, channel = Lwt_main.run(Inheap_events.listen 0) in
@@ -146,8 +146,8 @@ module Console_backend = Console_ring.Backend(Inheap_events)
 let with_consoles fn =
 	let b1 = alloc_page () in
 	let b2 = alloc_page () in
-	Memory.zero (Cstruct.of_bigarray b1);
-	Memory.zero (Cstruct.of_bigarray b2);
+	Mem.zero (Cstruct.of_bigarray b1);
+	Mem.zero (Cstruct.of_bigarray b2);
 	let a = Cstruct.of_bigarray b1 in
 	let b = Old_ring.C_Console.of_buf b2 in
 	let port, channel = Lwt_main.run(Inheap_events.listen 0) in

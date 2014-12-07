@@ -19,18 +19,9 @@
 
 module type RPC = sig
 
-  type sring
-  (** Abstract type for a shared ring. *)
+  type channel
 
-  val of_buf : buf:Cstruct.t -> idx_size:int -> name:string -> sring
-  (** [of_buf ~buf ~idx_size ~name] is an [sring] constructed from
-      [buf], of maximum request/response size [idx_size]. [name] is used for
-      pretty-printing. [buf] should be a Cstruct.t comprising pre-allocated
-      contiguous I/O pages. *)
-
-  val to_summary_string : sring -> string
-  (** [to_summary_string ring] is a printable single-line summary of the
-      ring. *)
+  type buf
 
   (** The front-end of the shared ring, which reads requests and reads
       responses from the remote domain. *)
@@ -40,7 +31,7 @@ module type RPC = sig
     (** Type of a frontend. 'a is the response type, and 'b is the
         request id type (e.g. int or int64). *)
 
-    val init : sring:sring -> ('a,'b) t
+    val init : buf:buf -> idx_size:int -> name:string -> channel -> ('b -> string) -> ('a,'b) t
     (** [init ~sring] is an initialized frontend attached to shared ring
         [sring]. *)
 
@@ -82,6 +73,35 @@ module type RPC = sig
 
     val to_string : ('a, 'b) t -> string
     (** [to_string t] pretty-prints ring metadata *)
+
+    val write : ('a, 'b) t -> (buf -> 'b) -> 'a Lwt.t Lwt.t
+    (** [write ring req_fn] blocks until a ring slot is free, calls
+    [req_fn] on it and returns a thread that will wakeup when the
+    response will be available. *)
+
+    val push : ('a, 'b) t -> unit Lwt.t
+    (** [push ring] advances [ring] pointers, exposing the
+    written requests to the other end, sending an event to the other
+    end (if necessary) *)
+
+    val push_request_and_wait : ('a,'b) t -> (buf -> 'b) -> 'a Lwt.t
+    (** [push_request_and_wait frontend req_fn] is [write
+    req_fn >>= fun t -> push notify_fn; return t]. *)
+
+    val push_request_async : ('a,'b) t -> (buf -> 'b) ->
+    ('a Lwt.t -> unit Lwt.t) -> unit Lwt.t
+    (** [push_request_async ring req_fn free_fn] is like
+    [push_request_and_wait] except it calls [free_fn] on the result
+    of [write] instead of returning it. *)
+
+    val poll : ('a,'b) t -> (buf -> ('b * 'a)) -> unit
+    (** [poll frontend resp_fn] polls the ring for responses, and wakes
+    up any threads that are sleeping (as a result of calling
+    [push_request_and_wait]). This can be called regularly, or
+    triggered via some external event such as an event channel
+    signal. *)
+
+    val shutdown : ('a, 'b) t -> unit
   end
 
   (** The back-end of the shared ring, which reads requests and writes
@@ -92,7 +112,7 @@ module type RPC = sig
     (** Type of a backend. 'a is the response type, and 'b is the
         request id type (e.g. int or int64). *)
 
-    val init : sring:sring -> ('a,'b) t
+    val init : buf:buf -> idx_size:int -> name:string -> channel -> ('b -> string) -> ('a,'b) t
     (** [init ~sring] is an initialized backend attached to shared ring
         [sring]. *)
 
@@ -127,6 +147,7 @@ module type RPC = sig
 
     val to_string : ('a, 'b) t -> string
     (** [to_string backend] pretty-prints the ring metadata. *)
+
   end
 
 end

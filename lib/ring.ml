@@ -15,7 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open S
-open Memory
+open Mem
 open Sexplib.Std
 open Lwt
 
