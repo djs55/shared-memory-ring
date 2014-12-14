@@ -19,6 +19,10 @@
 
 open S
 
+exception Shutdown
+(** Thrown when the transport layer has closed (for example due to a suspend).
+    The higher-layer should resubmit the request. *)
+
 module Make(
   E : Evtchn.S.EVENTS
         with type 'a io = 'a Lwt.t)(
